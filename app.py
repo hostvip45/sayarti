@@ -61,9 +61,9 @@ def utility_processor():
 
 # ---------- DB Helpers ----------
 def get_db():
+    # CHANGED: استخدم اتصال موحّد عبر get_conn() ليستوعب PostgreSQL أو SQLite
     if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
+        g.db = get_conn()
     return g.db
 
 @app.teardown_appcontext
@@ -75,6 +75,7 @@ def close_db(exception):
 def init_db():
     db = get_db()
     with open(os.path.join(os.path.dirname(__file__), "schema.sql"), mode="r", encoding="utf-8") as f:
+        # ملاحظة: هذا السكربت بصيغة SQLite. لا تشغّله على PostgreSQL.
         db.executescript(f.read())
     db.commit()
 
@@ -923,3 +924,4 @@ if __name__ == "__main__":
             ensure_admin()
         _apply_light_migrations()
     app.run(debug=True, host="0.0.0.0", port=5000)
+
