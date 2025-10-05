@@ -1,3 +1,22 @@
+# ---- DB adapter ----
+try:
+    import psycopg  # PostgreSQL
+    from psycopg.rows import dict_row
+except Exception:
+    psycopg = None
+    dict_row = None
+
+def get_conn():
+    """ارجع اتصال قاعدة البيانات حسب المتوفر: Postgres أو SQLite."""
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:                           # تشغيل عبر PostgreSQL (Neon)
+        conn = psycopg.connect(db_url, row_factory=dict_row)
+        return conn
+    else:                                # الوضع القديم (SQLite)
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
+
 from flask import current_app, flash, Flask, g, redirect, render_template, request, Response, send_file, session, url_for
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
