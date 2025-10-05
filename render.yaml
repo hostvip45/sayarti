@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: sayarti-pro
+    env: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 2 -k gthread -b 0.0.0.0:10000 app:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: SECRET_KEY
+        generateValue: true
+    disk:
+      name: sayarti-data
+      mountPath: /var/data
+      sizeGB: 1
