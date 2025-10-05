@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block content %}
+  <h3 class="mb-3">التقارير</h3>
+
+  <form method="get" class="card p-3 shadow-sm mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label">من</label>
+        <input class="form-control" type="date" name="from" value="{{ q_from }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">إلى</label>
+        <input class="form-control" type="date" name="to" value="{{ q_to }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">السيارة</label>
+        <select class="form-select" name="car_id">
+          <option value="">الكل</option>
+          {% for c in cars %}<option value="{{ c.id }}" {{ 'selected' if q_car==c.id|string }}>{{ c.label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">النوع</label>
+        <select class="form-select" name="type">
+          <option value="">الكل</option>
+          {% for t in mtypes %}<option value="{{ t.name }}" {{ 'selected' if q_type==t.name }}>{{ t.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">مركز الخدمة</label>
+        <input class="form-control" name="sc" value="{{ q_sc }}">
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">التجميع</label>
+        <select class="form-select" name="group">
+          <option value="car" {{ 'selected' if group=='car' }}>حسب السيارة</option>
+          <option value="month" {{ 'selected' if group=='month' }}>حسب الشهر</option>
+          <option value="type" {{ 'selected' if group=='type' }}>حسب النوع</option>
+          <option value="none" {{ 'selected' if group=='none' }}>تفصيلي</option>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">العملة</label>
+        <select class="form-select" name="currency">
+          <option value="SAR" {{ 'selected' if currency=='SAR' }}>ريال (SAR)</option>
+          <option value="USD" {{ 'selected' if currency=='USD' }}>دولار (USD)</option>
+        </select>
+      </div>
+
+      <div class="col-md-6 d-flex gap-2 justify-content-end">
+        <button class="btn btn-primary">تطبيق</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('reports') }}">مسح</a>
+      </div>
+
+      <div class="col-12 quick-filters mt-2">
+        <span class="me-2">مرشحات سريعة:</span>
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('reports', qf='today', group=group, currency=currency, car_id=q_car, type=q_type, sc=q_sc) }}">اليوم</a>
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('reports', qf='this_week', group=group, currency=currency, car_id=q_car, type=q_type, sc=q_sc) }}">هذا الأسبوع</a>
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('reports', qf='this_month', group=group, currency=currency, car_id=q_car, type=q_type, sc=q_sc) }}">هذا الشهر</a>
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('reports', qf='last_30d', group=group, currency=currency, car_id=q_car, type=q_type, sc=q_sc) }}">آخر 30 يوم</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="d-flex gap-2 mb-2">
+    <a class="btn btn-outline-dark" href="{{ url_for('reports_export', fmt='pdf', group=group, currency=currency, from=q_from, to=q_to, car_id=q_car, type=q_type, sc=q_sc) }}">تصدير PDF</a>
+    <a class="btn btn-outline-dark" href="{{ url_for('reports_export', fmt='csv', group=group, currency=currency, from=q_from, to=q_to, car_id=q_car, type=q_type, sc=q_sc) }}">تصدير CSV</a>
+  </div>
+
+  {% if data.mode == 'grouped' %}
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead><tr><th>المجموعة</th><th>العدد</th><th>الإجمالي ({{ currency }})</th></tr></thead>
+            <tbody>
+              {% for r in data.rows %}
+                <tr>
+                  <td>{{ r.grp }}</td>
+                  <td>{{ r.cnt }}</td>
+                  <td>{{ "%.2f"|format((r.total or 0)*fx_rate) }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="3" class="text-center text-muted">لا توجد بيانات.</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot><tr><th>المجموع</th><th>{{ data.count }}</th><th>{{ "%.2f"|format((data.total_cost or 0)*fx_rate) }}</th></tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead><tr><th>التاريخ</th><th>السيارة</th><th>النوع</th><th>العداد</th><th>التكلفة ({{ currency }})</th><th>المركز</th><th>ملاحظات</th></tr></thead>
+            <tbody>
+              {% for r in data.rows %}
+                <tr>
+                  <td>{{ r.maintenance_date }}</td>
+                  <td>{{ r.car_type }} - {{ r.model }}</td>
+                  <td>{{ r.maintenance_type }}</td>
+                  <td>{{ r.mileage or '' }}</td>
+                  <td>{{ r.cost and ("%.2f"|format(r.cost*fx_rate)) }}</td>
+                  <td>{{ r.service_center or '' }}</td>
+                  <td>{{ r.notes or '' }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="7" class="text-center text-muted">لا توجد بيانات.</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot><tr><th colspan="4">المجموع</th><th>{{ "%.2f"|format((data.total_cost or 0)*fx_rate) }}</th><th colspan="2"></th></tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+  <h3 class="mb-3">تسجيل حساب جديد</h3>
+  <form method="post" class="card p-3 shadow-sm">
+    <div class="row g-2">
+      <div class="col-md-4"><label class="form-label">الاسم</label><input class="form-control" name="name" required></div>
+      <div class="col-md-4"><label class="form-label">البريد</label><input class="form-control" name="email" type="email" required></div>
+      <div class="col-md-4"><label class="form-label">كلمة المرور</label><input class="form-control" name="password" type="password" required></div>
+    </div>
+    <div class="mt-3"><button class="btn btn-primary">تسجيل</button></div>
+  </form>
+{% endblock %}

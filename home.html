@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+  <h3 class="mb-3">لوحة التحكم</h3>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <span>السيارات</span>
+            <span class="badge bg-primary">{{ stats.cars }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <span>الصيانات</span>
+            <span class="badge bg-success">{{ stats.maint }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <span>قريبة الموعد</span>
+            <span class="badge bg-warning text-dark">{{ stats.upcoming }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-4 shadow-sm">
+    <div class="card-header">مواعيد قادمة خلال 30 يوم</div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead><tr><th>التاريخ</th><th>السيارة</th><th>النوع</th><th>المركز</th><th>ملاحظات</th></tr></thead>
+          <tbody>
+            {% for r in upcoming_rows %}
+              <tr>
+                <td>{{ r.next_maintenance_date or '' }}</td>
+                <td>{{ r.car_type }} - {{ r.model }}</td>
+                <td>{{ r.maintenance_type }}</td>
+                <td>{{ r.service_center or '' }}</td>
+                <td>{{ r.notes or '' }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="text-center text-muted">لا توجد مواعيد قادمة.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}

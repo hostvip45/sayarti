@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+  <h3 class="mb-3">تعيين كلمة مرور جديدة</h3>
+  <form method="post" class="card p-3 shadow-sm">
+    <div class="row g-2">
+      <div class="col-md-6"><label class="form-label">كلمة المرور الجديدة</label><input class="form-control" type="password" name="new1" required></div>
+      <div class="col-md-6"><label class="form-label">تأكيد كلمة المرور</label><input class="form-control" type="password" name="new2" required></div>
+    </div>
+    <div class="mt-3"><button class="btn btn-primary">حفظ</button></div>
+  </form>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+  <h3 class="mb-3">إدارة المستخدمين</h3>
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header">بانتظار الموافقة</div>
+        <div class="card-body p-0">
+          <table class="table mb-0">
+            <thead><tr><th>الاسم</th><th>البريد</th><th>تحكم</th></tr></thead>
+            <tbody>
+              {% for u in pending %}
+                <tr>
+                  <td>{{ u.name }}</td><td>{{ u.email }}</td>
+                  <td class="d-flex gap-1">
+                    <form method="post">
+                      <input type="hidden" name="action" value="approve"><input type="hidden" name="user_id" value="{{ u.id }}">
+                      <button class="btn btn-sm btn-success">موافقة</button>
+                    </form>
+                    <form method="post" onsubmit="return confirm('رفض وحذف الطلب؟')">
+                      <input type="hidden" name="action" value="reject"><input type="hidden" name="user_id" value="{{ u.id }}">
+                      <button class="btn btn-sm btn-outline-danger">رفض</button>
+                    </form>
+                  </td>
+                </tr>
+              {% else %}
+                <tr><td colspan="3" class="text-center text-muted">لا يوجد.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header">مستخدمون معتمدون</div>
+        <div class="card-body p-0">
+          <table class="table mb-0">
+            <thead><tr><th>الاسم</th><th>الدور</th><th>الحالة</th><th>تحكم</th></tr></thead>
+            <tbody>
+              {% for u in approved %}
+                <tr>
+                  <td>{{ u.name }}<div class="text-muted small">{{ u.email }}</div></td>
+                  <td><span class="badge bg-{{ 'dark' if u.role=='admin' else 'secondary' }}">{{ u.role }}</span></td>
+                  <td>{{ 'فعّال' if u.is_active else 'موقوف' }}</td>
+                  <td class="d-flex flex-wrap gap-1">
+                    <form method="post"><input type="hidden" name="action" value="promote"><input type="hidden" name="user_id" value="{{ u.id }}"><button class="btn btn-sm btn-outline-dark">ترقية</button></form>
+                    <form method="post"><input type="hidden" name="action" value="demote"><input type="hidden" name="user_id" value="{{ u.id }}"><button class="btn btn-sm btn-outline-secondary">تخفيض</button></form>
+                    <form method="post"><input type="hidden" name="action" value="suspend"><input type="hidden" name="user_id" value="{{ u.id }}"><button class="btn btn-sm btn-outline-warning">إيقاف</button></form>
+                    <form method="post"><input type="hidden" name="action" value="activate"><input type="hidden" name="user_id" value="{{ u.id }}"><button class="btn btn-sm btn-outline-success">تفعيل</button></form>
+                    <form method="post" onsubmit="return confirm('حذف المستخدم؟')"><input type="hidden" name="action" value="delete"><input type="hidden" name="user_id" value="{{ u.id }}"><button class="btn btn-sm btn-outline-danger">حذف</button></form>
+                    <form method="post" onsubmit="return confirm('توليد كلمة مرور مؤقتة؟')"><input type="hidden" name="action" value="resetpwd"><input type="hidden" name="user_id" value="{{ u.id }}"><button class="btn btn-sm btn-outline-primary">كلمة مؤقتة</button></form>
+                  </td>
+                </tr>
+              {% else %}
+                <tr><td colspan="4" class="text-center text-muted">لا يوجد.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

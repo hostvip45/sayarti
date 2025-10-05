@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block content %}
+  <h3 class="mb-3">إدارة البيانات</h3>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>السيارات</span>
+          <span class="badge bg-light text-dark">إضافة / تعديل / حذف</span>
+        </div>
+        <div class="card-body">
+          <form method="post" class="row g-2 mb-3">
+            <input type="hidden" name="action" value="car_add">
+            {% if is_admin %}
+              <div class="col-md-2"><label class="form-label">مالك (ID)</label><input class="form-control" name="owner_id" type="number" placeholder="ID"></div>
+            {% endif %}
+            <div class="col-md-5"><label class="form-label">السيارة</label><input class="form-control" name="car_type" required></div>
+            <div class="col-md-5"><label class="form-label">الموديل</label><input class="form-control" name="model" required></div>
+            <div class="col-12"><button class="btn btn-primary">إضافة</button></div>
+          </form>
+
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead><tr><th>ID</th><th>البيان</th>{% if is_admin %}<th>المالك</th>{% endif %}<th style="width:200px;">تحكم</th></tr></thead>
+              <tbody>
+                {% for c in cars %}
+                <tr>
+                  <td>{{ c.id }}</td>
+                  <td>{{ c.car_type }} - {{ c.model }}</td>
+                  {% if is_admin %}<td>{{ c.owner_name or c.owner_id }}</td>{% endif %}
+                  <td>
+                    <form method="post" class="d-inline">
+                      <input type="hidden" name="action" value="car_delete">
+                      <input type="hidden" name="car_id" value="{{ c.id }}">
+                      <button class="btn btn-sm btn-outline-danger" onclick="return confirm('حذف السيارة؟')">حذف</button>
+                    </form>
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editCar{{ c.id }}">تعديل</button>
+
+                    <!-- Edit Modal -->
+                    <div class="modal fade" id="editCar{{ c.id }}" tabindex="-1">
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <form method="post">
+                            <div class="modal-header"><h5 class="modal-title">تعديل سيارة</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                            <div class="modal-body">
+                              <input type="hidden" name="action" value="car_edit">
+                              <input type="hidden" name="car_id" value="{{ c.id }}">
+                              <div class="mb-2"><label class="form-label">السيارة</label><input class="form-control" name="car_type" value="{{ c.car_type }}"></div>
+                              <div class="mb-2"><label class="form-label">الموديل</label><input class="form-control" name="model" value="{{ c.model }}"></div>
+                            </div>
+                            <div class="modal-footer"><button class="btn btn-primary">حفظ</button></div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted">لا توجد سيارات.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>أنواع الصيانة</span>
+          <span class="badge bg-light text-dark">إضافة / تعديل / حذف</span>
+        </div>
+        <div class="card-body">
+          <form method="post" class="row g-2 mb-3">
+            <input type="hidden" name="action" value="mt_add">
+            <div class="col-md-8"><label class="form-label">اسم النوع</label><input class="form-control" name="name" required></div>
+            <div class="col-md-4"><label class="form-label d-block">&nbsp;</label><button class="btn btn-primary w-100">إضافة</button></div>
+          </form>
+
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead><tr><th>ID</th><th>الاسم</th><th style="width:200px;">تحكم</th></tr></thead>
+              <tbody>
+                {% for t in mtypes %}
+                <tr>
+                  <td>{{ t.id }}</td>
+                  <td>{{ t.name }}</td>
+                  <td>
+                    <form method="post" class="d-inline">
+                      <input type="hidden" name="action" value="mt_delete">
+                      <input type="hidden" name="mt_id" value="{{ t.id }}">
+                      <button class="btn btn-sm btn-outline-danger" onclick="return confirm('حذف النوع؟')">حذف</button>
+                    </form>
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editType{{ t.id }}">تعديل</button>
+
+                    <!-- Edit Modal -->
+                    <div class="modal fade" id="editType{{ t.id }}" tabindex="-1">
+                      <div class="modal-dialog">
+                        <div class="modal-content">
+                          <form method="post">
+                            <div class="modal-header"><h5 class="modal-title">تعديل النوع</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                            <div class="modal-body">
+                              <input type="hidden" name="action" value="mt_edit">
+                              <input type="hidden" name="mt_id" value="{{ t.id }}">
+                              <div class="mb-2"><label class="form-label">اسم النوع</label><input class="form-control" name="name" value="{{ t.name }}"></div>
+                            </div>
+                            <div class="modal-footer"><button class="btn btn-primary">حفظ</button></div>
+                          </form>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="text-center text-muted">لا توجد أنواع.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

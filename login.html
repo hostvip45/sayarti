@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+  <h3 class="mb-3">تسجيل الدخول</h3>
+  <form method="post" class="card p-3 shadow-sm">
+    <div class="row g-2">
+      <div class="col-md-6">
+        <label class="form-label">البريد</label>
+        <input class="form-control" name="email" type="email" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">كلمة المرور</label>
+        <input class="form-control" name="password" type="password" required>
+      </div>
+    </div>
+    <div class="mt-3 d-flex gap-2">
+      <button class="btn btn-primary">دخول</button>
+      <a class="btn btn-link" href="{{ url_for('forgot_password') }}">نسيت كلمة المرور؟</a>
+      <a class="btn btn-outline-secondary" href="{{ url_for('register') }}">حساب جديد</a>
+    </div>
+  </form>
+{% endblock %}
