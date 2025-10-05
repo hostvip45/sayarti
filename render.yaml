@@ -10,10 +10,6 @@ services:
       - key: FLASK_ENV
         value: production
       - key: DATA_DIR
-        value: /var/data
+        value: /tmp/sayarti
       - key: SECRET_KEY
         generateValue: true
-    disk:
-      name: sayarti-data
-      mountPath: /var/data
-      sizeGB: 1
