@@ -6,4 +6,5 @@ python-bidi==0.4.2
 requests==2.32.3
 gunicorn==21.2.0
 SQLAlchemy==2.0.35
-psycopg[binary]==3.2.1
+psycopg[binary]==3.2.10
+
