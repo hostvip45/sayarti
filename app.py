@@ -189,6 +189,7 @@ def login_required(view):
             return redirect(url_for("login"))
         return view(*args, **kwargs)
     return wrapped
+/cars/edit/<int:car_id>
 
 def admin_required(view):
     from functools import wraps
