@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container" dir="rtl">
-  <!-- Breadcrumb / Title -->
   <div class="d-flex align-items-center justify-content-between mt-2 mb-3">
     <h3 class="m-0">تعديل بيانات السيارة</h3>
     <a href="{{ url_for('manage') }}" class="btn btn-sm btn-outline-secondary">↩ الرجوع لإدارة البيانات</a>
@@ -45,16 +44,12 @@
             </div>
           </form>
         </div>
-        <div class="card-footer text-muted small">
-          آخر تعديل: {{ (car['updated_at'] if 'updated_at' in car.keys() else '') or '—' }}
-        </div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-// Bootstrap-like client validation
 (function () {
   const forms = document.querySelectorAll('.needs-validation');
   Array.from(forms).forEach(form => {
