@@ -58,9 +58,9 @@
                 </td>
                 <td class="text-end car">{{ c['car_type'] }}</td>
                 <td class="text-end model">{{ c['model'] }}</td>
-                <td class="text-end owner" title="ID: {{ c['owner_id'] }}">{{ c['owner_name'] || '—' }}</td>
+                <td class="text-end owner" title="ID: {{ c['owner_id'] }}">{{ c['owner_name'] or '—' }}</td>
                 {% if 'created_by_name' in c.keys() %}
-                <td class="text-end">{{ c['created_by_name'] || '—' }}</td>
+                <td class="text-end">{{ c['created_by_name'] or '—' }}</td>
                 {% endif %}
               </tr>
               {% else %}
