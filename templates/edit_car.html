@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container" dir="rtl">
+  <!-- Breadcrumb / Title -->
+  <div class="d-flex align-items-center justify-content-between mt-2 mb-3">
+    <h3 class="m-0">تعديل بيانات السيارة</h3>
+    <a href="{{ url_for('manage') }}" class="btn btn-sm btn-outline-secondary">↩ الرجوع لإدارة البيانات</a>
+  </div>
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-7">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <form method="post" class="row g-3 needs-validation" novalidate>
+            <div class="col-md-6">
+              <label class="form-label">السيارة <span class="text-danger">*</span></label>
+              <input type="text" name="car_type" value="{{ car['car_type'] }}" class="form-control" required>
+              <div class="invalid-feedback">أدخل اسم السيارة.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">الموديل <span class="text-danger">*</span></label>
+              <input type="text" name="model" value="{{ car['model'] }}" class="form-control" required>
+              <div class="invalid-feedback">أدخل الموديل.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">المالك</label>
+              <select name="owner_id" class="form-select">
+                {% for o in owners %}
+                  <option value="{{ o['id'] }}" {% if o['id']==car['owner_id'] %}selected{% endif %}>{{ o['name'] }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">رقم السجل</label>
+              <input type="text" class="form-control" value="{{ car['id'] }}" disabled>
+              <div class="form-text">المعرّف الداخلي للسيارة (غير قابل للتعديل).</div>
+            </div>
+
+            <div class="col-12 d-flex gap-2 mt-2">
+              <button class="btn btn-primary px-4" type="submit">حفظ التغييرات</button>
+              <a href="{{ url_for('manage') }}" class="btn btn-outline-secondary">إلغاء</a>
+            </div>
+          </form>
+        </div>
+        <div class="card-footer text-muted small">
+          آخر تعديل: {{ (car['updated_at'] if 'updated_at' in car.keys() else '') or '—' }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Bootstrap-like client validation
+(function () {
+  const forms = document.querySelectorAll('.needs-validation');
+  Array.from(forms).forEach(form => {
+    form.addEventListener('submit', event => {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      form.classList.add('was-validated');
+    }, false);
+  });
+})();
+</script>
+{% endblock %}
