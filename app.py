@@ -1,28 +1,9 @@
-# ---- DB adapter ----
-try:
-    import psycopg  # PostgreSQL
-    from psycopg.rows import dict_row
-except Exception:
-    psycopg = None
-    dict_row = None
-
-def get_conn():
-    """ارجع اتصال قاعدة البيانات حسب المتوفر: Postgres أو SQLite."""
-    db_url = os.environ.get("DATABASE_URL")
-    if db_url:                           # تشغيل عبر PostgreSQL (Neon)
-        conn = psycopg.connect(db_url, row_factory=dict_row)
-        return conn
-    else:                                # الوضع القديم (SQLite)
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        return conn
-
-from flask import current_app, flash, Flask, g, redirect, render_template, request, Response, send_file, session, url_for
+from flask import current_app, flash, Flask, g, redirect, render_template, request, Response, send_file, session, url_for, make_response, abort
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import os
-from io import BytesIO
+from io import BytesIO, StringIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -61,9 +42,9 @@ def utility_processor():
 
 # ---------- DB Helpers ----------
 def get_db():
-    # CHANGED: استخدم اتصال موحّد عبر get_conn() ليستوعب PostgreSQL أو SQLite
     if "db" not in g:
-        g.db = get_conn()
+        g.db = sqlite3.connect(DB_PATH)
+        g.db.row_factory = sqlite3.Row
     return g.db
 
 @app.teardown_appcontext
@@ -75,7 +56,6 @@ def close_db(exception):
 def init_db():
     db = get_db()
     with open(os.path.join(os.path.dirname(__file__), "schema.sql"), mode="r", encoding="utf-8") as f:
-        # ملاحظة: هذا السكربت بصيغة SQLite. لا تشغّله على PostgreSQL.
         db.executescript(f.read())
     db.commit()
 
@@ -96,6 +76,8 @@ def _apply_light_migrations():
     يضيف أعمدة استرجاع كلمة المرور إذا لم تكن موجودة:
     - users.reset_token TEXT
     - users.reset_expires TEXT
+    ويضيف أيضًا:
+    - cars.created_by INTEGER (backfill من owner_id)
     """
     db = get_db()
     cols = [r["name"] for r in db.execute("PRAGMA table_info(users)").fetchall()]
@@ -109,6 +91,17 @@ def _apply_light_migrations():
     if need_commit:
         db.commit()
         print("[DB] Light migration: added reset_token, reset_expires to users")
+
+    # --- cars table: created_by ---
+    try:
+        ccols = [r["name"] for r in db.execute("PRAGMA table_info(cars)").fetchall()]
+        if "created_by" not in ccols:
+            db.execute("ALTER TABLE cars ADD COLUMN created_by INTEGER")
+            db.execute("UPDATE cars SET created_by = owner_id WHERE created_by IS NULL")
+            db.commit()
+            print("[DB] Light migration: added cars.created_by & backfilled from owner_id")
+    except Exception as e:
+        print("[DB] cars.created_by migration warning:", e)
 
 # تشغيل الهجرة مرة واحدة فقط (متوافق مع Flask 3.x)
 _migrated_once = False
@@ -189,7 +182,6 @@ def login_required(view):
             return redirect(url_for("login"))
         return view(*args, **kwargs)
     return wrapped
-/cars/edit/<int:car_id>
 
 def admin_required(view):
     from functools import wraps
@@ -206,34 +198,78 @@ def admin_required(view):
 # ---------- Home (Dashboard) ----------
 @app.route("/")
 @login_required
+
 def home():
     db = get_db()
     if g.user["role"]=="admin":
-        cars_cnt = db.execute("SELECT COUNT(*) c FROM cars").fetchone()["c"]
+        cars_cnt  = db.execute("SELECT COUNT(*) c FROM cars").fetchone()["c"]
         maint_cnt = db.execute("SELECT COUNT(*) c FROM maintenance").fetchone()["c"]
+        base_where = "1=1"
+        base_params = []
         upcoming_rows = db.execute("""
             SELECT m.*, c.car_type, c.model FROM maintenance m
             JOIN cars c ON c.id=m.car_id
             WHERE m.next_maintenance_date IS NOT NULL
               AND date(m.next_maintenance_date) <= date('now','+30 day')
-            ORDER BY m.next_maintenance_date ASC LIMIT 10
+            ORDER BY m.next_maintenance_date ASC LIMIT 200
         """).fetchall()
     else:
-        cars_cnt = db.execute("SELECT COUNT(*) c FROM cars WHERE owner_id=?", (g.user["id"],)).fetchone()["c"]
-        maint_cnt = db.execute("""
-            SELECT COUNT(*) c FROM maintenance m
-            JOIN cars c ON c.id=m.car_id
-            WHERE c.owner_id=?
-        """, (g.user["id"],)).fetchone()["c"]
+        cars_cnt  = db.execute("SELECT COUNT(*) c FROM cars WHERE owner_id=?", (g.user["id"],)).fetchone()["c"]
+        maint_cnt = db.execute("SELECT COUNT(*) c FROM maintenance m JOIN cars c ON c.id=m.car_id WHERE c.owner_id=?", (g.user["id"],)).fetchone()["c"]
+        base_where = "c.owner_id=?"
+        base_params = [g.user["id"]]
         upcoming_rows = db.execute("""
             SELECT m.*, c.car_type, c.model FROM maintenance m
             JOIN cars c ON c.id=m.car_id
             WHERE c.owner_id=? AND m.next_maintenance_date IS NOT NULL
               AND date(m.next_maintenance_date) <= date('now','+30 day')
-            ORDER BY m.next_maintenance_date ASC LIMIT 10
+            ORDER BY m.next_maintenance_date ASC LIMIT 200
         """, (g.user["id"],)).fetchall()
-    stats = {"cars": cars_cnt, "maint": maint_cnt, "upcoming": len(upcoming_rows)}
-    return render_template("home.html", stats=stats, upcoming_rows=upcoming_rows)
+
+    total_amount_this_month = db.execute(f"""
+        SELECT COALESCE(SUM(m.cost),0)
+        FROM maintenance m JOIN cars c ON c.id=m.car_id
+        WHERE {base_where}
+          AND date(m.maintenance_date) >= date('now','start of month')
+          AND date(m.maintenance_date) <  date('now','start of month','+1 month')
+    """, tuple(base_params)).fetchone()[0] or 0.0
+
+    nearest_next = db.execute(f"""
+        SELECT MIN(date(m.next_maintenance_date))
+        FROM maintenance m JOIN cars c ON c.id=m.car_id
+        WHERE {base_where}
+          AND m.next_maintenance_date IS NOT NULL
+          AND date(m.next_maintenance_date) >= date('now')
+    """, tuple(base_params)).fetchone()[0] or "-"
+
+    from datetime import datetime as _dt
+    today = _dt.today().date()
+    enriched = []
+    for r in upcoming_rows:
+        dct = dict(r)
+        due_s = r["next_maintenance_date"]
+        if not due_s:
+            continue
+        try:
+            due = _dt.strptime(due_s, "%Y-%m-%d").date()
+        except Exception:
+            try:
+                due = _dt.fromisoformat(due_s).date()
+            except Exception:
+                enriched.append(dct); continue
+        days = (due - today).days
+        if days < 0:
+            dct["status_text"], dct["status_class"] = "متأخر", "danger"
+        elif days <= 3:
+            dct["status_text"], dct["status_class"] = "قريب جدًا", "warning"
+        else:
+            dct["status_text"], dct["status_class"] = f"بعد {days} يوم", "success"
+        enriched.append(dct)
+
+    stats = {"cars": cars_cnt, "maint": maint_cnt, "upcoming": len(enriched),
+             "amount_month": float(total_amount_this_month or 0), "nearest_next": nearest_next}
+    return render_template("home.html", stats=stats, upcoming_rows=enriched)
+return render_template("home.html", stats=stats, upcoming_rows=upcoming_rows)
 
 # ---------- Admin: users ----------
 @app.route("/admin/users", methods=["GET","POST"])
@@ -287,7 +323,10 @@ def add_car():
         if not car_type or not model:
             flash("يرجى تعبئة جميع الحقول.", "error")
             return render_template("add_car.html")
-        db.execute("INSERT INTO cars (car_type, model, owner_id) VALUES (?,?,?)",(car_type, model, g.user["id"]))
+        try:
+            db.execute("INSERT INTO cars (car_type, model, owner_id, created_by) VALUES (?,?,?,?)",(car_type, model, g.user["id"], g.user["id"]))
+        except Exception:
+            db.execute("INSERT INTO cars (car_type, model, owner_id) VALUES (?,?,?)",(car_type, model, g.user["id"]))
         db.commit()
         flash("تمت إضافة السيارة.", "success")
         return redirect(url_for("home"))
@@ -897,10 +936,19 @@ def manage():
         return redirect(url_for("manage"))
 
     if g.user["role"] == "admin":
+        try:
+        cars = db.execute("""
+            SELECT c.*, u.name as owner_name, u2.name as created_by_name
+              FROM cars c
+         LEFT JOIN users u  ON u.id=c.owner_id
+         LEFT JOIN users u2 ON u2.id=c.created_by
+          ORDER BY c.id DESC
+        """).fetchall()
+    except Exception:
         cars = db.execute("""
             SELECT c.*, u.name as owner_name
-            FROM cars c LEFT JOIN users u ON u.id=c.owner_id
-            ORDER BY c.id DESC
+              FROM cars c LEFT JOIN users u ON u.id=c.owner_id
+          ORDER BY c.id DESC
         """).fetchall()
     else:
         cars = db.execute("SELECT * FROM cars WHERE owner_id=? ORDER BY id DESC", (g.user["id"],)).fetchall()
@@ -925,4 +973,121 @@ if __name__ == "__main__":
             ensure_admin()
         _apply_light_migrations()
     app.run(debug=True, host="0.0.0.0", port=5000)
+
+# ---------- Export: Upcoming within 30 days (CSV/PDF) ----------
+def _query_upcoming_30(db, user):
+    limit_to = (date.today() + timedelta(days=30)).isoformat()
+    if user and hasattr(user, "keys") and "role" in user.keys():
+        role = user["role"]
+    else:
+        role = "user"
+    if role == "admin":
+        q = """
+            SELECT m.id, c.car_type, c.model, m.maintenance_type, COALESCE(m.service_center,'') as service_center,
+                   COALESCE(m.notes,'') as notes, COALESCE(m.mileage,'') as mileage,
+                   date(m.next_maintenance_date) as due_date
+            FROM maintenance m
+            JOIN cars c ON c.id=m.car_id
+            WHERE m.next_maintenance_date IS NOT NULL
+              AND date(m.next_maintenance_date) <= date(?)
+            ORDER BY date(m.next_maintenance_date) ASC, m.id ASC
+        """
+        return db.execute(q, (limit_to,)).fetchall()
+    else:
+        q = """
+            SELECT m.id, c.car_type, c.model, m.maintenance_type, COALESCE(m.service_center,'') as service_center,
+                   COALESCE(m.notes,'') as notes, COALESCE(m.mileage,'') as mileage,
+                   date(m.next_maintenance_date) as due_date
+            FROM maintenance m
+            JOIN cars c ON c.id=m.car_id
+            WHERE c.owner_id=?
+              AND m.next_maintenance_date IS NOT NULL
+              AND date(m.next_maintenance_date) <= date(?)
+            ORDER BY date(m.next_maintenance_date) ASC, m.id ASC
+        """
+        return db.execute(q, (g.user["id"], limit_to)).fetchall()
+
+@app.route("/export/upcoming30.<fmt>")
+@login_required
+def export_upcoming(fmt):
+    db = get_db()
+    rows = _query_upcoming_30(db, g.user)
+    if fmt.lower() == "csv":
+        csv_io = StringIO()
+        headers = ["التاريخ", "السيارة", "النوع", "المركز", "الملاحظات", "الممشى"]
+        csv_io.write(",".join(headers) + "\\n")
+        for r in rows:
+            carname = f"{r['car_type']} - {r['model']}"
+            line = [
+                r["due_date"] or "",
+                carname.replace(",", " "),
+                (r["maintenance_type"] or "").replace(",", " "),
+                (r["service_center"] or "").replace(",", " "),
+                (r["notes"] or "").replace(",", " "),
+                str(r["mileage"] or ""),
+            ]
+            csv_io.write(",".join(line) + "\\n")
+        resp = make_response(csv_io.getvalue().encode("utf-8-sig"))
+        filename = f"upcoming30_{date.today().isoformat()}.csv"
+        resp.headers["Content-Type"] = "text/csv; charset=utf-8"
+        resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        return resp
+
+    if fmt.lower() == "pdf":
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+        font_name = PDF_AR_FONT or "Helvetica"
+        c.setFont(font_name, 14); c.drawRightString(560, 800, ar_txt("تقرير المواعيد القادمة خلال 30 يوم"))
+        c.setFont(font_name, 11); c.drawRightString(560, 780, ar_txt(f"تاريخ الإصدار: {date.today().isoformat()}"))
+        y = 750
+        headers = ["التاريخ","السيارة","النوع","المركز","الملاحظات","الممشى"]
+        col_w = [90, 150, 100, 100, 180, 60]
+        x_right = 560
+        for i, htxt in enumerate(headers):
+            c.drawRightString(x_right, y, ar_txt(htxt)); x_right -= col_w[i]
+        y -= 14; c.line(40, y, 560, y); y -= 10
+        for r in rows:
+            if y < 60:
+                c.showPage(); c.setFont(font_name, 11); y = 780
+            x_right = 560
+            fields = [
+                r["due_date"] or "",
+                f"{r['car_type']} - {r['model']}",
+                r["maintenance_type"] or "",
+                r["service_center"] or "",
+                (r["notes"] or "")[:48],
+                str(r["mileage"] or ""),
+            ]
+            for i, val in enumerate(fields):
+                c.drawRightString(x_right, y, ar_txt(str(val))); x_right -= col_w[i]
+            y -= 16
+        c.showPage(); c.save(); buffer.seek(0)
+        filename = f"upcoming30_{date.today().isoformat()}.pdf"
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
+    return "Unsupported format", 400
+
+
+# --- PATCH: /cars/edit/<id> ---
+@app.route("/cars/edit/<int:car_id>", methods=["GET", "POST"])
+@login_required
+def edit_car(car_id):
+    db = get_db()
+    if request.method == "POST":
+        car_type = request.form.get("car_type","").strip()
+        model    = request.form.get("model","").strip()
+        owner_id = request.form.get("owner_id")
+        if not car_type or not model:
+            flash("الرجاء تعبئة الحقول المطلوبة", "warning")
+            return redirect(url_for("edit_car", car_id=car_id))
+        db.execute("UPDATE cars SET car_type=?, model=?, owner_id=? WHERE id=?", (car_type, model, owner_id, car_id))
+        db.commit()
+        flash("تم حفظ التغييرات بنجاح", "success")
+        return redirect(url_for("manage"))
+    car = db.execute("SELECT * FROM cars WHERE id=?", (car_id,)).fetchone()
+    if not car:
+        abort(404)
+    owners = db.execute("SELECT id, name FROM users ORDER BY name ASC").fetchall()
+    return render_template("edit_car.html", car=car, owners=owners)
+# --- END PATCH ---
 
