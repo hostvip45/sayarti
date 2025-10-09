@@ -4,7 +4,7 @@
   <h3 class="mb-3">إدارة البيانات</h3>
 
   <div class="row g-3">
-    <!-- أنواع الصيانة (يسار) -->
+    <!-- أنواع الصيانة -->
     <div class="col-lg-6">
       <div class="card shadow-sm">
         <div class="card-header fw-bold">أنواع الصيانة</div>
@@ -27,8 +27,8 @@
               <tr>
                 <td>
                   <div class="d-flex gap-2">
-                    <a href="{{ url_for('edit_maintenance_type', type_id=t['id']) }}" class="btn btn-outline-secondary btn-sm">تعديل</a>
-                    <a href="{{ url_for('delete_maintenance_type', type_id=t['id']) }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('حذف النوع؟');">حذف</a>
+                    <!-- إزالة رابط تعديل مؤقتًا حتى لا يحدث BuildError لو لم يكن المسار موجودًا -->
+                    <a href="/maintenance/types/delete/{{ t['id'] }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('حذف النوع؟');">حذف</a>
                   </div>
                 </td>
                 <td class="text-end">{{ t['name'] }}</td>
@@ -43,7 +43,7 @@
       </div>
     </div>
 
-    <!-- السيارات (يمين) -->
+    <!-- السيارات -->
     <div class="col-lg-6">
       <div class="card shadow-sm">
         <div class="card-header fw-bold">السيارات</div>
@@ -77,8 +77,8 @@
               <tr>
                 <td>
                   <div class="d-flex gap-2">
-                    <a href="{{ url_for('edit_car', car_id=c['id']) }}" class="btn btn-outline-secondary btn-sm">تعديل</a>
-                    <a href="{{ url_for('delete_car', car_id=c['id']) }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('حذف السيارة؟');">حذف</a>
+                    <!-- إزالة edit مؤقتًا -->
+                    <a href="/cars/delete/{{ c['id'] }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('حذف السيارة؟');">حذف</a>
                   </div>
                 </td>
                 <td class="text-end">{{ c['car_type'] }}</td>
