@@ -4,6 +4,74 @@
   <h3 class="mb-3">إدارة البيانات</h3>
 
   <div class="row g-3">
+    <!-- السيارات -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-header fw-bold d-flex align-items-center justify-content-between">
+          <span>السيارات</span>
+          <!-- أدوات التصفية -->
+          <div class="d-flex gap-2 align-items-center">
+            <input id="carSearch" type="text" class="form-control form-control-sm" placeholder="ابحث عن السيارة/الموديل" style="max-width: 200px;">
+            <select id="ownerFilter" class="form-select form-select-sm" style="max-width: 180px;">
+              <option value="">كلّ الملاك</option>
+              {% set owners = cars | map(attribute='owner_name') | list %}
+              {% for o in owners | unique %}
+                <option value="{{ o|default('') }}">{{ o|default('') }}</option>
+              {% endfor %}
+            </select>
+            <button id="clearFilters" class="btn btn-sm btn-outline-secondary">تفريغ</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('add_car') }}" class="row g-2 mb-3">
+            <div class="col-md-5">
+              <input type="text" name="car_type" class="form-control" placeholder="السيارة" required>
+            </div>
+            <div class="col-md-5">
+              <input type="text" name="model" class="form-control" placeholder="الموديل" required>
+            </div>
+            <div class="col-md-2 d-grid">
+              <button class="btn btn-primary">إضافة</button>
+            </div>
+          </form>
+
+          <table id="carsTable" class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th style="width:140px">تحكم</th>
+                <th class="text-end">السيارة</th>
+                <th class="text-end">الموديل</th>
+                <th class="text-end">المالك</th>
+                {% if cars and 'created_by_name' in cars[0].keys() %}
+                <th class="text-end">أضيفت بواسطة</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in cars %}
+              <tr>
+                <td>
+                  <div class="d-flex gap-2">
+                    <a href="/cars/edit/{{ c['id'] }}" class="btn btn-outline-secondary btn-sm">تعديل</a>
+                    <a href="/cars/delete/{{ c['id'] }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('حذف السيارة؟');">حذف</a>
+                  </div>
+                </td>
+                <td class="text-end car">{{ c['car_type'] }}</td>
+                <td class="text-end model">{{ c['model'] }}</td>
+                <td class="text-end owner" title="ID: {{ c['owner_id'] }}">{{ c['owner_name'] || '—' }}</td>
+                {% if 'created_by_name' in c.keys() %}
+                <td class="text-end">{{ c['created_by_name'] || '—' }}</td>
+                {% endif %}
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="text-center text-muted">لا توجد سيارات</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- أنواع الصيانة -->
     <div class="col-lg-6">
       <div class="card shadow-sm">
@@ -27,7 +95,7 @@
               <tr>
                 <td>
                   <div class="d-flex gap-2">
-                    <!-- إزالة رابط تعديل مؤقتًا حتى لا يحدث BuildError لو لم يكن المسار موجودًا -->
+                    <!-- بإمكاننا إرجاع رابط التعديل لاحقًا عند توفر المسار -->
                     <a href="/maintenance/types/delete/{{ t['id'] }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('حذف النوع؟');">حذف</a>
                   </div>
                 </td>
@@ -43,59 +111,35 @@
       </div>
     </div>
 
-    <!-- السيارات -->
-    <div class="col-lg-6">
-      <div class="card shadow-sm">
-        <div class="card-header fw-bold">السيارات</div>
-        <div class="card-body">
-          <form method="post" action="{{ url_for('add_car') }}" class="row g-2 mb-3">
-            <div class="col-md-5">
-              <input type="text" name="car_type" class="form-control" placeholder="السيارة" required>
-            </div>
-            <div class="col-md-5">
-              <input type="text" name="model" class="form-control" placeholder="الموديل" required>
-            </div>
-            <div class="col-md-2 d-grid">
-              <button class="btn btn-primary">إضافة</button>
-            </div>
-          </form>
-
-          <table class="table table-sm align-middle">
-            <thead>
-              <tr>
-                <th style="width:120px">تحكم</th>
-                <th class="text-end">السيارة</th>
-                <th class="text-end">الموديل</th>
-                <th class="text-end">المالك</th>
-                {% if cars and 'created_by_name' in cars[0].keys() %}
-                <th class="text-end">أضيفت بواسطة</th>
-                {% endif %}
-              </tr>
-            </thead>
-            <tbody>
-              {% for c in cars %}
-              <tr>
-                <td>
-                  <div class="d-flex gap-2">
-                    <!-- إزالة edit مؤقتًا -->
-                    <a href="/cars/delete/{{ c['id'] }}" class="btn btn-outline-danger btn-sm" onclick="return confirm('حذف السيارة؟');">حذف</a>
-                  </div>
-                </td>
-                <td class="text-end">{{ c['car_type'] }}</td>
-                <td class="text-end">{{ c['model'] }}</td>
-                <td class="text-end" title="ID: {{ c['owner_id'] }}">{{ c['owner_name'] or '—' }}</td>
-                {% if 'created_by_name' in c.keys() %}
-                <td class="text-end">{{ c['created_by_name'] or '—' }}</td>
-                {% endif %}
-              </tr>
-              {% else %}
-              <tr><td colspan="5" class="text-center text-muted">لا توجد سيارات</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
+
+<script>
+// فلترة الجدول
+(function(){
+  const search = document.getElementById('carSearch');
+  const ownerSel = document.getElementById('ownerFilter');
+  const clearBtn = document.getElementById('clearFilters');
+  const rows = Array.from(document.querySelectorAll('#carsTable tbody tr'));
+
+  function applyFilter(){
+    const q = (search.value || '').trim().toLowerCase();
+    const owner = (ownerSel.value || '').trim();
+    rows.forEach(tr => {
+      const car = (tr.querySelector('.car')?.textContent || '').toLowerCase();
+      const model = (tr.querySelector('.model')?.textContent || '').toLowerCase();
+      const own = (tr.querySelector('.owner')?.textContent || '').trim();
+      const matchText = !q || (car.includes(q) || model.includes(q));
+      const matchOwner = !owner || (own === owner);
+      tr.style.display = (matchText && matchOwner) ? '' : 'none';
+    });
+  }
+
+  search.addEventListener('input', applyFilter);
+  ownerSel.addEventListener('change', applyFilter);
+  clearBtn.addEventListener('click', function(){
+    search.value=''; ownerSel.value=''; applyFilter();
+  });
+})();
+</script>
 {% endblock %}
